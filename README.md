@@ -129,8 +129,12 @@ With both servers running, visit `http://localhost:5173`. Click **Demo Login** t
 | `CLEVER_REDIRECT_URI` | OAuth callback URL | `http://localhost:8000/auth/callback` |
 | `JWT_SECRET_KEY` | Secret for signing JWTs | `dev-secret-change-in-production` |
 | `JWT_EXPIRY_HOURS` | Token lifetime in hours | `24` |
-| `ILLUMINATE_API_KEY` | Renaissance Illuminate API key | `""` |
+| `ILLUMINATE_API_KEY` | Renaissance Illuminate bearer/API key | `""` |
 | `ILLUMINATE_BASE_URL` | Illuminate API base URL | `https://api.renaissance.com` |
+| `ILLUMINATE_CONSUMER_KEY` | Renaissance Illuminate OAuth consumer key | `""` |
+| `ILLUMINATE_CONSUMER_SECRET` | Renaissance Illuminate OAuth consumer secret | `""` |
+| `ILLUMINATE_USER_KEY` | Renaissance Illuminate OAuth user key | `""` |
+| `ILLUMINATE_USER_SECRET` | Renaissance Illuminate OAuth user secret | `""` |
 | `CORS_ORIGINS` | Comma-separated allowed origins | `http://localhost:5173` |
 | `FRONTEND_URL` | Frontend URL for OAuth redirects | `http://localhost:5173` |
 

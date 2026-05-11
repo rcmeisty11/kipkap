@@ -12,8 +12,11 @@ class Settings(BaseSettings):
     jwt_secret_key: str = "dev-secret-change-in-production"
     jwt_algorithm: str = "HS256"
     jwt_expiry_hours: int = 24
-    illuminate_api_key: str = ""
-    illuminate_base_url: str = "https://api.renaissance.com"
+    illuminate_base_url: str = "https://{district}.illuminateed.com/live/rest_server.php"
+    illuminate_consumer_key: str = ""
+    illuminate_consumer_secret: str = ""
+    illuminate_user_key: str = ""
+    illuminate_user_secret: str = ""
     cors_origins: str = "http://localhost:5173"
     frontend_url: str = "http://localhost:5173"
 
