@@ -40,6 +40,7 @@ async def create_assignment(
         subject=body.subject,
         max_score=body.max_score,
         due_date=body.due_date,
+        notes=body.notes,
         section_id=body.section_id,
         teacher_id=user.teacher_id or 0,
     )
@@ -75,6 +76,7 @@ async def update_assignment(
     assignment.subject = body.subject
     assignment.max_score = body.max_score
     assignment.due_date = body.due_date
+    assignment.notes = body.notes
     await db.commit()
     await db.refresh(assignment)
     return assignment

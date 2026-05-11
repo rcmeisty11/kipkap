@@ -17,6 +17,7 @@ class Assignment(Base):
     subject: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     max_score: Mapped[float] = mapped_column(Float, default=100.0)
     due_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     illuminate_id: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     section_id: Mapped[int] = mapped_column(ForeignKey("sections.id"))
     teacher_id: Mapped[int] = mapped_column(ForeignKey("teachers.id"))

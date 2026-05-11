@@ -65,6 +65,7 @@ export interface Assignment {
   max_score: number;
   due_date: string | null;
   standard_id?: number | null;
+  notes?: string | null;
   illuminate_id: string | null;
   section_id: number;
   teacher_id: number;

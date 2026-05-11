@@ -41,9 +41,21 @@ export function useUpdateScore() {
 export function useCreateAssignment() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (body: { title: string; subject?: string; max_score: number; due_date?: string; section_id: number; standard_id?: number }) => {
+    mutationFn: async (body: { title: string; subject?: string; max_score: number; due_date?: string; section_id: number; standard_id?: number; notes?: string }) => {
       const { data } = await api.post("/assignments", body);
       return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["assignments"] });
+    },
+  });
+}
+
+export function useDeleteAssignment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (assignmentId: number) => {
+      await api.delete(`/assignments/${assignmentId}`);
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["assignments"] });

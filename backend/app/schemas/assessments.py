@@ -10,6 +10,7 @@ class AssignmentCreate(BaseModel):
     subject: Optional[str] = None
     max_score: float = 100.0
     due_date: Optional[date] = None
+    notes: Optional[str] = None
     section_id: int
 
 
@@ -19,6 +20,7 @@ class AssignmentOut(BaseModel):
     subject: Optional[str]
     max_score: float
     due_date: Optional[date]
+    notes: Optional[str]
     illuminate_id: Optional[str]
     section_id: int
     teacher_id: int

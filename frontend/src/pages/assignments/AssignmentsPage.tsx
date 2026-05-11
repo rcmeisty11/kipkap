@@ -24,7 +24,7 @@ import { AssignmentGrid } from "@/components/assignments/AssignmentGrid";
 import { useUIStore } from "@/store/ui";
 import { useSections } from "@/hooks/useStudents";
 import { useCreateAssignment } from "@/hooks/useAssignments";
-import type { Section, Standard } from "@/types";
+import type { Assignment, Section, Standard } from "@/types";
 
 // Demo sections for when the API is unavailable
 const DEMO_SECTIONS: Section[] = [
@@ -56,6 +56,9 @@ export function AssignmentsPage() {
     }
   }, [selectedSectionId, sections, setSelectedSection]);
 
+  // Pending assignment for mock mode
+  const [pendingAssignment, setPendingAssignment] = useState<Assignment | null>(null);
+
   // New assignment dialog state
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogTab, setDialogTab] = useState<"create" | "import">("create");
@@ -71,26 +74,45 @@ export function AssignmentsPage() {
 
   const handleCreateAssignment = () => {
     if (!newTitle.trim() || !selectedSectionId || selectedSectionId === "all") return;
-    createAssignment.mutate(
-      {
-        title: newTitle.trim(),
-        max_score: parseInt(newMaxScore) || 100,
-        due_date: newDueDate || undefined,
-        subject: newSubject || undefined,
-        section_id: selectedSectionId,
-        standard_id: newStandardId ? parseInt(newStandardId) : undefined,
-      },
-      {
-        onSuccess: () => {
-          setDialogOpen(false);
-          setNewTitle("");
-          setNewMaxScore("100");
-          setNewDueDate("");
-          setNewSubject("");
-          setNewStandardId("");
-        },
-      }
-    );
+
+    const assignmentData = {
+      title: newTitle.trim(),
+      max_score: parseInt(newMaxScore) || 100,
+      due_date: newDueDate || undefined,
+      subject: newSubject || undefined,
+      section_id: selectedSectionId,
+      standard_id: newStandardId ? parseInt(newStandardId) : undefined,
+    };
+
+    // Always create a mock assignment for immediate UI feedback
+    const mockAssignment: Assignment = {
+      id: Date.now(),
+      title: assignmentData.title,
+      subject: assignmentData.subject ?? null,
+      max_score: assignmentData.max_score,
+      due_date: assignmentData.due_date ?? null,
+      standard_id: assignmentData.standard_id ?? null,
+      notes: null,
+      illuminate_id: null,
+      section_id: assignmentData.section_id,
+      teacher_id: 1,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    setPendingAssignment(mockAssignment);
+
+    // Also try the API (will succeed if backend is running)
+    createAssignment.mutate(assignmentData, {
+      onSuccess: () => {},
+      onError: () => {},
+    });
+
+    setDialogOpen(false);
+    setNewTitle("");
+    setNewMaxScore("100");
+    setNewDueDate("");
+    setNewSubject("");
+    setNewStandardId("");
   };
 
   return (
@@ -280,7 +302,11 @@ export function AssignmentsPage() {
 
       {/* Grid area */}
       {selectedSectionId ? (
-        <AssignmentGrid sectionId={selectedSectionId} />
+        <AssignmentGrid
+          sectionId={selectedSectionId}
+          pendingNewAssignment={pendingAssignment}
+          onPendingConsumed={() => setPendingAssignment(null)}
+        />
       ) : (
         <div className="flex-1 flex items-center justify-center text-gray-500 text-sm">
           Select a section to view assignments.

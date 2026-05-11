@@ -24,6 +24,8 @@ import {
   X,
   Plus,
   Layers,
+  StickyNote,
+  Trash2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -38,7 +40,8 @@ import {
 } from "@/components/ui/select";
 import { ScoreCell } from "./ScoreCell";
 import { StandardExpandRow } from "./StandardExpandRow";
-import { useAssignments, useUpdateScore } from "@/hooks/useAssignments";
+import api from "@/lib/api";
+import { useAssignments, useUpdateScore, useDeleteAssignment } from "@/hooks/useAssignments";
 import { useStudents } from "@/hooks/useStudents";
 import { useFocusGroups, useCreateFocusGroup } from "@/hooks/useFocusGroups";
 import { useUIStore } from "@/store/ui";
@@ -90,10 +93,10 @@ const MOCK_SECTION_MAP: Record<number, { students: Student[]; name: string }> = 
 };
 
 const MOCK_ASSIGNMENTS: Assignment[] = [
-  { id: 101, title: "Unit 3 Quiz", subject: "Math", max_score: 20, due_date: "2026-05-01", standard_id: 1, illuminate_id: null, section_id: 1, teacher_id: 1, created_at: "", updated_at: "" },
-  { id: 102, title: "Fractions HW", subject: "Math", max_score: 10, due_date: "2026-05-01", standard_id: 1, illuminate_id: null, section_id: 1, teacher_id: 1, created_at: "", updated_at: "" },
-  { id: 103, title: "Reading Response", subject: "ELA", max_score: 25, due_date: "2026-05-05", standard_id: 2, illuminate_id: null, section_id: 1, teacher_id: 1, created_at: "", updated_at: "" },
-  { id: 104, title: "Benchmark #2", subject: "Math", max_score: 50, due_date: "2026-05-08", standard_id: 5, illuminate_id: null, section_id: 1, teacher_id: 1, created_at: "", updated_at: "" },
+  { id: 101, title: "Unit 3 Quiz", subject: "Math", max_score: 20, due_date: "2026-05-01", standard_id: 1, notes: "Covers NBT.4 standards only. Retake offered 5/5.", illuminate_id: null, section_id: 1, teacher_id: 1, created_at: "", updated_at: "" },
+  { id: 102, title: "Fractions HW", subject: "Math", max_score: 10, due_date: "2026-05-01", standard_id: 1, notes: null, illuminate_id: null, section_id: 1, teacher_id: 1, created_at: "", updated_at: "" },
+  { id: 103, title: "Reading Response", subject: "ELA", max_score: 25, due_date: "2026-05-05", standard_id: 2, notes: "Partner work allowed for ML students", illuminate_id: null, section_id: 1, teacher_id: 1, created_at: "", updated_at: "" },
+  { id: 104, title: "Benchmark #2", subject: "Math", max_score: 50, due_date: "2026-05-08", standard_id: 5, notes: "District benchmark — do not modify scores", illuminate_id: null, section_id: 1, teacher_id: 1, created_at: "", updated_at: "" },
 ];
 
 const MOCK_SCORES: StudentScore[] = [
@@ -327,9 +330,11 @@ function computeSummaries(
 
 interface AssignmentGridProps {
   sectionId: number | "all" | null;
+  pendingNewAssignment?: Assignment | null;
+  onPendingConsumed?: () => void;
 }
 
-export function AssignmentGrid({ sectionId }: AssignmentGridProps) {
+export function AssignmentGrid({ sectionId, pendingNewAssignment, onPendingConsumed }: AssignmentGridProps) {
   const { groupBy, setGroupBy } = useUIStore();
   const isAllSections = sectionId === "all";
   const numericSectionId = isAllSections ? null : sectionId;
@@ -352,7 +357,8 @@ export function AssignmentGrid({ sectionId }: AssignmentGridProps) {
     return MOCK_SECTION_MAP[numericSectionId ?? 1]?.students ?? MOCK_STUDENTS;
   }, [useMock, isAllSections, numericSectionId, apiStudents]);
 
-  const assignments = useMock ? MOCK_ASSIGNMENTS : apiAssignments ?? [];
+  const [localAssignments, setLocalAssignments] = useState(MOCK_ASSIGNMENTS);
+  const assignments = useMock ? localAssignments : apiAssignments ?? [];
   const [localFocusGroups, setLocalFocusGroups] = useState(MOCK_FOCUS_GROUPS);
   const focusGroups = useMock ? localFocusGroups : apiFocusGroups ?? [];
   const allScores = useMock ? MOCK_SCORES : [];
@@ -406,6 +412,11 @@ export function AssignmentGrid({ sectionId }: AssignmentGridProps) {
   const [dlFilter, setDlFilter] = useState(false);
   const [focusGroupFilters, setFocusGroupFilters] = useState<string[]>([]);
   const [showFocusGroupMenu, setShowFocusGroupMenu] = useState(false);
+
+  // Notes row toggle
+  const [showNotes, setShowNotes] = useState(false);
+  const [editingNoteId, setEditingNoteId] = useState<number | null>(null);
+  const [editingNoteText, setEditingNoteText] = useState("");
 
   // New group form state
   const [showNewGroupForm, setShowNewGroupForm] = useState(false);
@@ -492,6 +503,49 @@ export function AssignmentGrid({ sectionId }: AssignmentGridProps) {
     setNewGroupColor("#6366f1");
     setShowNewGroupForm(false);
   };
+
+  // Handle saving an assignment note
+  const handleNoteSave = useCallback(
+    (assignmentId: number, noteText: string) => {
+      if (useMock) {
+        setLocalAssignments((prev) =>
+          prev.map((a) =>
+            a.id === assignmentId ? { ...a, notes: noteText || null } : a
+          )
+        );
+      } else {
+        // In real mode, PUT /assignments/{id} with updated notes
+        api.put(`/assignments/${assignmentId}`, { notes: noteText || null }).catch(() => {});
+      }
+      setEditingNoteId(null);
+      setEditingNoteText("");
+    },
+    [useMock]
+  );
+
+  // Consume pending new assignment from parent
+  React.useEffect(() => {
+    if (pendingNewAssignment) {
+      if (useMock) {
+        setLocalAssignments((prev) => [...prev, pendingNewAssignment]);
+      }
+      onPendingConsumed?.();
+    }
+  }, [pendingNewAssignment, useMock, onPendingConsumed]);
+
+  // Delete assignment handler
+  const deleteAssignmentMutation = useDeleteAssignment();
+  const handleDeleteAssignment = useCallback(
+    (assignmentId: number) => {
+      if (useMock) {
+        setLocalAssignments((prev) => prev.filter((a) => a.id !== assignmentId));
+        setLocalScores((prev) => prev.filter((s) => s.assignment_id !== assignmentId));
+      } else {
+        deleteAssignmentMutation.mutate(assignmentId);
+      }
+    },
+    [useMock, deleteAssignmentMutation]
+  );
 
   // Build columns
   const fixedColumnCount = isAllSections ? 6 : 5; // expand, name, [section], ML, DL, groups
@@ -647,22 +701,43 @@ export function AssignmentGrid({ sectionId }: AssignmentGridProps) {
         return columnHelper.display({
           id: `asgn_${assignment.id}`,
           header: ({ column }) => (
-            <button
-              className="flex flex-col items-center w-full text-center hover:text-indigo-700 transition-colors"
-              onClick={() => column.toggleSorting()}
-            >
-              <span className="text-xs font-semibold leading-tight truncate max-w-[80px]" title={assignment.title}>
-                {assignment.title}
-              </span>
-              <span className="text-[10px] text-gray-400 font-normal">
-                /{assignment.max_score}
-              </span>
-              {standard && (
-                <Badge className="mt-0.5 bg-gray-100 text-gray-600 border-gray-200 text-[9px] px-1 py-0 font-mono">
-                  {standard.code}
-                </Badge>
-              )}
-            </button>
+            <div className="flex flex-col items-center w-full text-center">
+              <button
+                className="flex flex-col items-center w-full hover:text-indigo-700 transition-colors"
+                onClick={() => column.toggleSorting()}
+              >
+                <span className="text-xs font-semibold leading-tight truncate max-w-[80px]" title={assignment.title}>
+                  {assignment.title}
+                </span>
+                <span className="text-[10px] text-gray-400 font-normal">
+                  /{assignment.max_score}
+                </span>
+                {standard && (
+                  <Badge className="mt-0.5 bg-gray-100 text-gray-600 border-gray-200 text-[9px] px-1 py-0 font-mono">
+                    {standard.code}
+                  </Badge>
+                )}
+              </button>
+              <div className="flex items-center gap-1 mt-0.5">
+                {assignment.notes && (
+                  <span title="Has notes">
+                    <StickyNote className="h-3 w-3 text-amber-500" />
+                  </span>
+                )}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (confirm(`Delete "${assignment.title}"?`)) {
+                      handleDeleteAssignment(assignment.id);
+                    }
+                  }}
+                  className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-red-100 text-gray-400 hover:text-red-600 transition-all"
+                  title="Delete assignment"
+                >
+                  <Trash2 className="h-3 w-3" />
+                </button>
+              </div>
+            </div>
           ),
           cell: ({ row }) => {
             const scoreRecord = row.original.scores[assignment.id];
@@ -691,7 +766,7 @@ export function AssignmentGrid({ sectionId }: AssignmentGridProps) {
       }),
     ];
     return cols;
-  }, [sortedAssignments, focusGroups, handleScoreSave, isAllSections]);
+  }, [sortedAssignments, focusGroups, handleScoreSave, handleDeleteAssignment, isAllSections]);
 
   // Table instance
   const table = useReactTable({
@@ -922,6 +997,17 @@ export function AssignmentGrid({ sectionId }: AssignmentGridProps) {
           </Select>
         </div>
 
+        {/* Notes toggle */}
+        <Button
+          variant={showNotes ? "default" : "outline"}
+          size="sm"
+          onClick={() => setShowNotes((prev) => !prev)}
+          className={cn("gap-1.5 text-xs", showNotes && "bg-amber-600 hover:bg-amber-700")}
+        >
+          <StickyNote className="h-3.5 w-3.5" />
+          Notes
+        </Button>
+
         {/* Active filter count */}
         {activeFilterCount > 0 && (
           <button
@@ -1076,6 +1162,61 @@ export function AssignmentGrid({ sectionId }: AssignmentGridProps) {
                 })}
               </tr>
             ))}
+            {/* Assignment notes row */}
+            {showNotes && (
+              <tr className="bg-amber-50/60 text-xs">
+                <td
+                  colSpan={fixedColumnCount}
+                  className="px-2 h-8 sticky left-0 z-10 bg-amber-50/60 border-r border-gray-200"
+                >
+                  <div className="flex items-center gap-1.5 text-amber-700 font-medium">
+                    <StickyNote className="h-3 w-3" />
+                    Notes
+                  </div>
+                </td>
+                {sortedAssignments.map((a) => (
+                  <td
+                    key={a.id}
+                    className="px-1 border-r border-gray-200 last:border-r-0 align-top"
+                    style={{ width: 88, minWidth: 88 }}
+                  >
+                    {editingNoteId === a.id ? (
+                      <textarea
+                        className="w-full min-h-[48px] max-h-[120px] text-[11px] p-1 border border-amber-300 rounded bg-white resize-y focus:outline-none focus:ring-1 focus:ring-amber-400"
+                        value={editingNoteText}
+                        onChange={(e) => setEditingNoteText(e.target.value)}
+                        onBlur={() => handleNoteSave(a.id, editingNoteText)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Escape") {
+                            setEditingNoteId(null);
+                            setEditingNoteText("");
+                          }
+                        }}
+                        autoFocus
+                      />
+                    ) : (
+                      <button
+                        className={cn(
+                          "w-full text-left text-[11px] p-1 rounded hover:bg-amber-100 transition-colors min-h-[28px]",
+                          a.notes ? "text-gray-700" : "text-gray-400 italic"
+                        )}
+                        onClick={() => {
+                          setEditingNoteId(a.id);
+                          setEditingNoteText(a.notes ?? "");
+                        }}
+                        title={a.notes ?? "Click to add a note"}
+                      >
+                        {a.notes ? (
+                          <span className="line-clamp-3">{a.notes}</span>
+                        ) : (
+                          "Add note..."
+                        )}
+                      </button>
+                    )}
+                  </td>
+                ))}
+              </tr>
+            )}
           </tbody>
 
           {/* Data rows */}
